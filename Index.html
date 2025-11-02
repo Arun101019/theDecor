@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Decor Edits</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #0d1117; color: #e6edf3; font-family: 'Poppins', sans-serif; }
+    .navbar { background-color: #161b22; border-bottom: 1px solid #30363d; }
+    .navbar-brand { color: #1f6feb !important; font-weight: 600; }
+    .nav-link { color: #e6edf3 !important; }
+    .nav-link:hover { color: #58a6ff !important; }
+    .container { margin-top: 40px; max-width: 1000px; }
+    .card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; transition: transform 0.2s ease; }
+    .card:hover { transform: translateY(-5px); }
+    .product-img { height: 200px; object-fit: cover; border-radius: 10px; }
+    .btn-buy { background-color: #1f6feb; border: none; }
+    .btn-buy:hover { background-color: #388bfd; }
+    .modal-content { background-color: #161b22; color: #e6edf3; border: 1px solid #30363d; }
+    .form-control, .form-range { background-color: #0d1117; color: #e6edf3; border: 1px solid #30363d; }
+    .price-range-label { font-weight: 500; color: #9ba1a6; }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="#">🛍️ The Decor Edits</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#aboutModal">About Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#contactModal">Contact Us</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <h2 class="text-info mb-4 text-center">🛍️ Explore Our Collection</h2>
+
+  <!-- Search + Filter -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <input type="text" id="searchBox" class="form-control w-50" placeholder="🔍 Search products...">
+    <div class="d-flex align-items-center gap-3">
+      <label class="price-range-label">Price Range:</label>
+      <input type="number" id="minPrice" class="form-control" style="width:100px" placeholder="Min">
+      <input type="number" id="maxPrice" class="form-control" style="width:100px" placeholder="Max">
+      <button class="btn btn-sm btn-primary" id="filterBtn">Apply</button>
+    </div>
+  </div>
+
+  <!-- Product Grid -->
+  <div id="productList" class="row g-4"></div>
+</div>
+
+<!-- Product Details Modal -->
+<div class="modal fade" id="detailsModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content p-3">
+      <div class="modal-header">
+        <h5 class="modal-title text-warning">🛒 Product Details</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        <img id="mainImage" class="img-fluid rounded mb-3" style="max-height:300px;">
+        <div id="extraImages" class="d-flex justify-content-center flex-wrap gap-2 mb-3"></div>
+        <h4 id="prodName" class="text-info"></h4>
+        <p id="prodDesc" class="text-light"></p>
+        <h5 id="prodPrice" class="text-success"></h5>
+        <a id="amazonLink" target="_blank" class="btn btn-success mt-2">🛒Buy on Now</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- About Us Modal -->
+<div class="modal fade" id="aboutModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content p-4 text-center">
+      <h4 class="text-warning mb-3">About Us</h4>
+      <p>
+        Welcome to <strong>The Decor Edits</strong> — your one-stop destination for stylish, high-quality home decor.
+        We bring you a curated selection of modern, elegant pieces to transform your space with comfort and charm.
+      </p>
+      <p class="text-secondary">🪄 Crafted with passion. Designed for your home.</p>
+      <button class="btn btn-outline-info mt-3" data-bs-dismiss="modal">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Contact Us Modal -->
+<div class="modal fade" id="contactModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content p-4 text-center">
+      <h4 class="text-warning mb-3">Contact Us</h4>
+      <p>Have questions or feedback? We’d love to hear from you!</p>
+      <p>📧 <a href="https://mail.google.com/mail/?view=cm&fs=1&to=aman.raj988@gmail.com" 
+   target="_blank" class="text-decoration-none text-info">aman.raj988@gmail.com</a></p>
+      <p>📞 +91-8512852975</p>
+      <p>📍 Mumbai, India</p>
+      <button class="btn btn-outline-info mt-3" data-bs-dismiss="modal">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+let db;
+const request = indexedDB.open("ShopDB", 1);
+request.onerror = () => alert("❌ Database error!");
+request.onsuccess = e => { db = e.target.result; loadProducts(); };
+request.onupgradeneeded = e => {
+  db = e.target.result;
+  if (!db.objectStoreNames.contains("products"))
+    db.createObjectStore("products", { keyPath: "id", autoIncrement: true });
+};
+
+function loadProducts(searchTerm = "", min = 0, max = Infinity) {
+  const tx = db.transaction("products", "readonly");
+  const store = tx.objectStore("products");
+  store.getAll().onsuccess = e => {
+    const products = e.target.result
+      .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      .filter(p => p.price >= min && p.price <= max);
+
+    const list = document.getElementById("productList");
+    list.innerHTML = "";
+    if (products.length === 0) {
+      list.innerHTML = `<p class="text-center text-secondary">No products found.</p>`;
+      return;
+    }
+
+    products.forEach(p => {
+      list.innerHTML += `
+        <div class="col-md-4">
+          <div class="card p-3 shadow-sm h-100">
+            <img src="${p.mainImage}" class="product-img mb-3" alt="">
+            <h5 class="text-warning">${p.name}</h5>
+            <p class="text-light">${p.description.substring(0,70)}...</p>
+            <p class="text-info fw-bold">₹${p.price}</p>
+            <button class="btn btn-sm btn-outline-info w-100 mb-2 details-btn" data-id="${p.id}">🔍 View Details</button>
+            ${p.amazonLink ? `<a href="${p.amazonLink}" target="_blank" class="btn btn-sm btn-success w-100">🛒 Buy Now</a>` : ""}
+          </div>
+        </div>`;
+    });
+
+    document.querySelectorAll(".details-btn").forEach(b => b.onclick = openDetails);
+  };
+}
+
+function openDetails(e) {
+  const id = parseInt(e.target.dataset.id);
+  const tx = db.transaction("products", "readonly");
+  tx.objectStore("products").get(id).onsuccess = ev => {
+    const p = ev.target.result;
+    if (!p) return;
+    document.getElementById("mainImage").src = p.mainImage;
+    const extraContainer = document.getElementById("extraImages");
+    extraContainer.innerHTML = "";
+    p.extraImages.forEach(img => {
+      const thumb = document.createElement("img");
+      thumb.src = img;
+      thumb.classList.add("rounded", "border");
+      thumb.style.height = "60px";
+      thumb.style.cursor = "pointer";
+      thumb.onclick = () => document.getElementById("mainImage").src = img;
+      extraContainer.appendChild(thumb);
+    });
+    document.getElementById("prodName").textContent = p.name;
+    document.getElementById("prodDesc").textContent = p.description;
+    document.getElementById("prodPrice").textContent = "₹" + p.price;
+    const amazonBtn = document.getElementById("amazonLink");
+    if (p.amazonLink) {
+      amazonBtn.href = p.amazonLink;
+      amazonBtn.style.display = "inline-block";
+    } else {
+      amazonBtn.style.display = "none";
+    }
+    new bootstrap.Modal(document.getElementById("detailsModal")).show();
+  };
+}
+
+// Search and Filter
+document.getElementById("searchBox").addEventListener("input", e => {
+  const term = e.target.value.trim();
+  const min = parseFloat(document.getElementById("minPrice").value) || 0;
+  const max = parseFloat(document.getElementById("maxPrice").value) || Infinity;
+  loadProducts(term, min, max);
+});
+document.getElementById("filterBtn").addEventListener("click", () => {
+  const term = document.getElementById("searchBox").value.trim();
+  const min = parseFloat(document.getElementById("minPrice").value) || 0;
+  const max = parseFloat(document.getElementById("maxPrice").value) || Infinity;
+  loadProducts(term, min, max);
+});
+</script>
+</body>
+</html>

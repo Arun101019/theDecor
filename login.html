@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Login — The Decor Edits</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #0d1117; color: #e6edf3; font-family: 'Poppins',sans-serif; }
+    .card { background:#161b22; border:1px solid #30363d; }
+    .form-control { background:#0d1117; color:#e6edf3; border:1px solid #30363d; }
+    .btn-primary { background:#1f6feb; border:none; }
+    .btn-primary:hover { background:#388bfd; }
+    .toggle-link { cursor:pointer; color:#58a6ff; text-decoration:underline; }
+    .small-note { color:#9ba1a6; font-size:0.9rem; }
+  </style>
+</head>
+<body>
+
+<div class="container d-flex align-items-center justify-content-center" style="min-height:100vh;">
+  <div class="w-100" style="max-width:420px;">
+    <div class="text-center mb-4">
+      <h3 class="text-info">🛍️ The Decor Edits</h3>
+      <p class="small-note">Sign in to manage or browse products</p>
+    </div>
+
+    <div id="messages"></div>
+
+    <!-- Login Card -->
+    <div id="loginCard" class="card p-4 mb-3 shadow-sm">
+      <h5 class="text-warning mb-3">Sign In</h5>
+      <form id="loginForm">
+        <div class="mb-3">
+          <label class="form-label">Email</label>
+          <input type="email" id="loginEmail" class="form-control" required placeholder="you@example.com">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Password</label>
+          <input type="password" id="loginPassword" class="form-control" required placeholder="Password">
+        </div>
+        <button class="btn btn-primary w-100" type="submit">Sign In</button>
+      </form>
+      <div class="mt-3 text-center">
+        <span class="small-note">Don't have an account?</span>
+        <div><span id="showRegister" class="toggle-link">Create account</span></div>
+      </div>
+    </div>
+
+    <!-- Register Card (hidden by default) -->
+    <div id="registerCard" class="card p-4 mb-3 shadow-sm" style="display:none;">
+      <h5 class="text-warning mb-3">Create Account</h5>
+      <form id="registerForm">
+        <div class="mb-3">
+          <label class="form-label">Email</label>
+          <input type="email" id="regEmail" class="form-control" required placeholder="you@example.com">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Password</label>
+          <input type="password" id="regPassword" class="form-control" required placeholder="Password (min 4 chars)">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Role</label>
+          <select id="regRole" class="form-select form-control">
+            <option value="Customer" selected>Customer</option>
+            <option value="Admin">Admin</option>
+          </select>
+        </div>
+        <button class="btn btn-primary w-100" type="submit">Create Account</button>
+      </form>
+      <div class="mt-3 text-center">
+        <span class="small-note">Already have account?</span>
+        <div><span id="showLogin" class="toggle-link">Back to Sign In</span></div>
+      </div>
+    </div>
+
+    <div class="text-center small-note mt-2">
+      First-time users: a default admin is available — <strong>admin@admin.com</strong> / <strong>admin123</strong>
+    </div>
+  </div>
+</div>
+
+<script>
+/*
+  login.html — IndexedDB auth
+  - Creates default admin if no users exist
+  - Register / Login using users store
+  - On login sets localStorage.userRole & localStorage.userEmail then redirects
+*/
+
+// --- IndexedDB setup ---
+let db;
+const rq = indexedDB.open('AuthDB', 1);
+
+rq.onerror = () => showMessage('Error opening database', 'danger');
+rq.onupgradeneeded = (e) => {
+  db = e.target.result;
+  if (!db.objectStoreNames.contains('users')) {
+    const store = db.createObjectStore('users', { keyPath: 'id', autoIncrement: true });
+    store.createIndex('email', 'email', { unique: true });
+  }
+};
+rq.onsuccess = (e) => {
+  db = e.target.result;
+  ensureDefaultAdmin();
+};
+
+// --- helpers ---
+function showMessage(text, type='info') {
+  const m = document.getElementById('messages');
+  m.innerHTML = `<div class="alert alert-${type}">${text}</div>`;
+  setTimeout(() => { if (m) m.innerHTML = ''; }, 4000);
+}
+
+function ensureDefaultAdmin() {
+  const tx = db.transaction('users','readonly');
+  const store = tx.objectStore('users');
+  const getAll = store.getAll();
+  getAll.onsuccess = () => {
+    const arr = getAll.result || [];
+    if (!arr || arr.length === 0) {
+      // create a default admin (for convenience)
+      const tx2 = db.transaction('users','readwrite');
+      tx2.objectStore('users').add({ email: 'admin@admin.com', password: 'admin123', role: 'Admin' });
+      tx2.oncomplete = () => {
+        showMessage('Default admin created: admin@admin.com / admin123', 'success');
+      };
+    }
+  };
+  getAll.onerror = () => { /* ignore */ };
+}
+
+// --- UI toggle register/login ---
+document.getElementById('showRegister').addEventListener('click', () => {
+  document.getElementById('loginCard').style.display = 'none';
+  document.getElementById('registerCard').style.display = 'block';
+});
+document.getElementById('showLogin').addEventListener('click', () => {
+  document.getElementById('registerCard').style.display = 'none';
+  document.getElementById('loginCard').style.display = 'block';
+});
+
+// --- register handler ---
+document.getElementById('registerForm').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const email = document.getElementById('regEmail').value.trim().toLowerCase();
+  const password = document.getElementById('regPassword').value;
+  const role = document.getElementById('regRole').value;
+
+  if (password.length < 4) return showMessage('Password should be at least 4 characters', 'warning');
+
+  const tx = db.transaction('users','readwrite');
+  const store = tx.objectStore('users');
+  // check unique email
+  const idx = store.index('email');
+  const q = idx.get(email);
+  q.onsuccess = () => {
+    if (q.result) return showMessage('Email already registered', 'warning');
+    store.add({ email, password, role });
+    tx.oncomplete = () => {
+      showMessage('Account created — you can now log in', 'success');
+      document.getElementById('registerForm').reset();
+      document.getElementById('registerCard').style.display = 'none';
+      document.getElementById('loginCard').style.display = 'block';
+    };
+    tx.onerror = () => showMessage('Failed to create account', 'danger');
+  };
+  q.onerror = () => showMessage('Error checking email', 'danger');
+});
+
+// --- login handler ---
+document.getElementById('loginForm').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const password = document.getElementById('loginPassword').value;
+
+  const tx = db.transaction('users','readonly');
+  const store = tx.objectStore('users');
+  const idx = store.index('email');
+  const req = idx.get(email);
+
+  req.onsuccess = () => {
+    const user = req.result;
+    if (!user) return showMessage('No account found with that email', 'warning');
+    if (user.password !== password) return showMessage('Incorrect password', 'warning');
+
+    // success → set localStorage and redirect based on role
+    localStorage.setItem('userRole', user.role);
+    localStorage.setItem('userEmail', user.email);
+
+    if (user.role === 'Admin') {
+      showMessage('Welcome Admin — redirecting...', 'success');
+      setTimeout(() => window.location.href = 'admin.html', 600);
+    } else {
+      showMessage('Login successful — redirecting to shop...', 'success');
+      setTimeout(() => window.location.href = 'customer.html', 600);
+    }
+  };
+
+  req.onerror = () => showMessage('Login error', 'danger');
+});
+
+// Optional: auto-fill credentials for convenience (dev only)
+document.addEventListener('keydown', (e) => {
+  // Ctrl+Alt+A fills admin creds
+  if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'a') {
+    document.getElementById('loginEmail').value = 'admin@admin.com';
+    document.getElementById('loginPassword').value = 'admin123';
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Manage Products</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #0d1117; color: #e6edf3; font-family: 'Poppins', sans-serif; }
+    .container { max-width: 900px; margin-top: 40px; }
+    .card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; }
+    .form-control { background-color: #0d1117; color: #e6edf3; border: 1px solid #30363d; }
+    .btn-primary { background-color: #1f6feb; border: none; }
+    .btn-primary:hover { background-color: #388bfd; }
+    .btn-danger { background-color: #d73a49; border: none; }
+    .btn-danger:hover { background-color: #f85149; }
+    img.preview { height: 80px; margin: 3px; border-radius: 5px; border: 1px solid #30363d; object-fit: cover; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+
+<script>
+// 🛑 Access control for Admin Page
+document.addEventListener("DOMContentLoaded", () => {
+  const role = localStorage.getItem("userRole");
+  if (role !== "Admin") {
+    alert("🚫 Access Denied! Only Admins can open this page.");
+    window.location.href = "customer.html";
+  }
+});
+</script>
+
+<div class="container">
+  <div class="topbar">
+    <h2 class="text-info mb-4">🛒 Admin Panel — Manage Products</h2>
+    <button class="btn btn-sm btn-outline-danger" onclick="logout()">Logout</button>
+  </div>
+
+  <!-- Product Form -->
+  <div class="card p-4 mb-4">
+    <h5 class="text-warning mb-3" id="formTitle">➕ Add New Product</h5>
+    <form id="productForm">
+      <input type="hidden" id="editId">
+      <div class="mb-3">
+        <label class="form-label">Product Name</label>
+        <input type="text" id="name" class="form-control" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Description</label>
+        <textarea id="description" class="form-control" rows="2" required></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Price (₹)</label>
+        <input type="number" id="price" class="form-control" min="0" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Amazon Link (optional)</label>
+        <input type="url" id="amazonLink" class="form-control" placeholder="https://www.amazon.in/your-product">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Main Image</label>
+        <input type="file" id="mainImage" accept="image/*" class="form-control" required>
+        <div id="mainPreview" class="mt-2"></div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Extra Images</label>
+        <input type="file" id="extraImages" accept="image/*" multiple class="form-control">
+        <div id="extraPreview" class="mt-2"></div>
+      </div>
+      <button type="submit" class="btn btn-primary w-100">💾 Save Product</button>
+    </form>
+  </div>
+
+  <!-- Product List -->
+  <div class="card p-4">
+    <h5 class="text-warning mb-3">📦 Products List</h5>
+    <div id="productList"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function logout() {
+  localStorage.clear();
+  window.location.href = "login.html";
+}
+
+// IndexedDB setup
+let db;
+const request = indexedDB.open("ShopDB", 1);
+request.onerror = () => alert("❌ Database error!");
+request.onsuccess = e => { db = e.target.result; loadProducts(); };
+request.onupgradeneeded = e => {
+  db = e.target.result;
+  if (!db.objectStoreNames.contains("products"))
+    db.createObjectStore("products", { keyPath: "id", autoIncrement: true });
+};
+
+let mainImageData = "";
+let extraImagesData = [];
+
+// Handle image previews
+document.getElementById("mainImage").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      mainImageData = reader.result;
+      document.getElementById("mainPreview").innerHTML = `<img src="${mainImageData}" class="preview">`;
+    };
+    reader.readAsDataURL(file);
+  }
+});
+
+document.getElementById("extraImages").addEventListener("change", e => {
+  extraImagesData = [];
+  const files = Array.from(e.target.files);
+  const preview = document.getElementById("extraPreview");
+  preview.innerHTML = "";
+  files.forEach(f => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      extraImagesData.push(reader.result);
+      preview.innerHTML += `<img src="${reader.result}" class="preview">`;
+    };
+    reader.readAsDataURL(f);
+  });
+});
+
+// Save product
+document.getElementById("productForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const id = document.getElementById("editId").value;
+  const product = {
+    name: document.getElementById("name").value.trim(),
+    description: document.getElementById("description").value.trim(),
+    price: parseFloat(document.getElementById("price").value),
+    mainImage: mainImageData,
+    extraImages: extraImagesData,
+    amazonLink: document.getElementById("amazonLink").value.trim()
+  };
+
+  const tx = db.transaction("products", "readwrite");
+  const store = tx.objectStore("products");
+
+  if (id) {
+    product.id = parseInt(id);
+    store.put(product);
+  } else {
+    store.add(product);
+  }
+
+  tx.oncomplete = () => {
+    e.target.reset();
+    mainImageData = "";
+    extraImagesData = [];
+    document.getElementById("mainPreview").innerHTML = "";
+    document.getElementById("extraPreview").innerHTML = "";
+    document.getElementById("formTitle").textContent = "➕ Add New Product";
+    document.getElementById("editId").value = "";
+    loadProducts();
+  };
+});
+
+// Load products
+function loadProducts() {
+  const tx = db.transaction("products", "readonly");
+  const store = tx.objectStore("products");
+  store.getAll().onsuccess = e => {
+    const list = document.getElementById("productList");
+    const products = e.target.result;
+    if (products.length === 0) {
+      list.innerHTML = `<p class="text-secondary">No products added yet.</p>`;
+      return;
+    }
+    list.innerHTML = products.map(p => `
+      <div class="border p-3 mb-3 rounded">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <h6 class="text-info">${p.name}</h6>
+            <p class="text-light mb-1">₹${p.price}</p>
+            ${p.amazonLink ? `<a href="${p.amazonLink}" target="_blank" class="text-success small">🌐 Buy Now</a>` : ""}
+          </div>
+          <div>
+            <button class="btn btn-sm btn-warning me-2" onclick="editProduct(${p.id})">✏️ Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">🗑️ Delete</button>
+          </div>
+        </div>
+      </div>
+    `).join("");
+  };
+}
+
+// Edit product
+function editProduct(id) {
+  const tx = db.transaction("products", "readonly");
+  tx.objectStore("products").get(id).onsuccess = e => {
+    const p = e.target.result;
+    document.getElementById("editId").value = p.id;
+    document.getElementById("name").value = p.name;
+    document.getElementById("description").value = p.description;
+    document.getElementById("price").value = p.price;
+    document.getElementById("amazonLink").value = p.amazonLink || "";
+    mainImageData = p.mainImage;
+    extraImagesData = p.extraImages || [];
+    document.getElementById("mainPreview").innerHTML = `<img src="${p.mainImage}" class="preview">`;
+    document.getElementById("extraPreview").innerHTML = p.extraImages.map(i => `<img src="${i}" class="preview">`).join("");
+    document.getElementById("formTitle").textContent = "✏️ Edit Product";
+  };
+}
+
+// Delete product
+function deleteProduct(id) {
+  if (!confirm("Delete this product?")) return;
+  const tx = db.transaction("products", "readwrite");
+  tx.objectStore("products").delete(id);
+  tx.oncomplete = () => loadProducts();
+}
+</script>
+</body>
+</html>
