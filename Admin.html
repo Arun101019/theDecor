@@ -31,87 +31,127 @@
 </head>
 
 <body>
-
-<!-- Navbar -->
 <nav class="navbar navbar-expand-lg navbar-dark">
   <div class="container-fluid px-4">
     <a class="navbar-brand" href="#">⚙️ Admin - The Decor Edits</a>
+    <button id="logoutBtn" class="btn btn-danger btn-sm ms-auto d-none">Logout</button>
   </div>
 </nav>
 
-<div class="container mt-5">
-  <h2 class="text-info mb-4 text-center">🛍️ Add New Product</h2>
+<!-- Login Section -->
+<div class="container mt-5" id="loginSection">
+  <div class="card mx-auto" style="max-width:400px;">
+    <h4 class="text-center text-info mb-3">🔐 Admin Login</h4>
+    <form id="loginForm">
+      <div class="mb-3">
+        <label>Email</label>
+        <input type="email" id="loginEmail" class="form-control" required>
+      </div>
+      <div class="mb-3">
+        <label>Password</label>
+        <input type="password" id="loginPassword" class="form-control" required>
+      </div>
+      <button type="submit" class="btn btn-primary w-100">Login</button>
+    </form>
+  </div>
+</div>
 
+<!-- Admin Panel Section -->
+<div class="container mt-5 d-none" id="adminSection">
+  <h2 class="text-info mb-4 text-center">🛍️ Add New Product</h2>
   <div class="card shadow">
     <form id="productForm">
       <div class="mb-3">
         <label class="form-label">Product Name</label>
         <input type="text" id="pname" class="form-control" required>
       </div>
-
       <div class="mb-3">
         <label class="form-label">Description</label>
         <textarea id="pdesc" class="form-control" rows="3" required></textarea>
       </div>
-
       <div class="mb-3">
         <label class="form-label">Price (₹)</label>
         <input type="number" id="pprice" class="form-control" required>
       </div>
-
       <div class="mb-3">
         <label class="form-label">Main Image</label>
         <input type="file" id="mainImgFile" class="form-control" accept="image/*" required>
       </div>
-
-      <div class="mb-3">
-        <label class="form-label">Other Images (optional)</label>
-        <input type="file" id="otherImgsFile" class="form-control" accept="image/*" multiple>
-      </div>
-
       <div class="mb-3">
         <label class="form-label">Amazon / Flipkart Link</label>
-        <input type="url" id="plink" class="form-control" placeholder="https://amazon.in/...">
+        <input type="url" id="plink" class="form-control">
       </div>
-
       <button type="submit" class="btn btn-primary w-100">💾 Save Product</button>
     </form>
   </div>
 
   <div class="mt-5">
-    <h4 class="text-info mb-3">🧾 All Saved Products</h4>
+    <h4 class="text-info mb-3">🧾 All Products</h4>
     <div id="productList" class="row g-4"></div>
   </div>
 </div>
 
-<!-- Firebase SDK -->
 <script type="module">
-  // Import Firebase functions
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-storage.js";
 
-  // Firebase configuration (from your console)
   const firebaseConfig = {
     apiKey: "AIzaSyDRVCbBDzuqIG2mYBLDirReunh4oLJa5Wk",
     authDomain: "thedecor-6d3f4.firebaseapp.com",
     projectId: "thedecor-6d3f4",
     storageBucket: "thedecor-6d3f4.firebasestorage.app",
     messagingSenderId: "993017983175",
-    appId: "1:993017983175:web:3d5fcb9977236aa84b8ee2",
-    measurementId: "G-YT7CBME3LK"
+    appId: "1:993017983175:web:3d5fcb9977236aa84b8ee2"
   };
 
-  // Initialize Firebase
   const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
   const db = getFirestore(app);
   const storage = getStorage(app);
 
+  const loginSection = document.getElementById("loginSection");
+  const adminSection = document.getElementById("adminSection");
+  const logoutBtn = document.getElementById("logoutBtn");
+
+  // 🔐 Handle Auth State
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      loginSection.classList.add("d-none");
+      adminSection.classList.remove("d-none");
+      logoutBtn.classList.remove("d-none");
+      loadProducts();
+    } else {
+      adminSection.classList.add("d-none");
+      loginSection.classList.remove("d-none");
+      logoutBtn.classList.add("d-none");
+    }
+  });
+
+  // Login Handler
+  document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("loginEmail").value;
+    const password = document.getElementById("loginPassword").value;
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      alert("❌ Login failed: " + err.message);
+    }
+  });
+
+  // Logout
+  logoutBtn.addEventListener("click", async () => {
+    await signOut(auth);
+  });
+
+  // 🛍️ Product Upload
   const form = document.getElementById("productForm");
   const list = document.getElementById("productList");
 
-  async function uploadImage(file, folder = "products") {
-    const fileRef = ref(storage, `${folder}/${Date.now()}_${file.name}`);
+  async function uploadImage(file) {
+    const fileRef = ref(storage, `products/${Date.now()}_${file.name}`);
     await uploadBytes(fileRef, file);
     return await getDownloadURL(fileRef);
   }
@@ -123,27 +163,14 @@
     const price = parseFloat(document.getElementById("pprice").value);
     const link = document.getElementById("plink").value.trim();
     const mainFile = document.getElementById("mainImgFile").files[0];
-    const otherFiles = Array.from(document.getElementById("otherImgsFile").files);
 
-    if (!mainFile) {
-      alert("Main image is required!");
-      return;
-    }
+    if (!mainFile) return alert("Main image is required!");
 
     try {
-      // Upload main image
       const mainImageUrl = await uploadImage(mainFile);
-      const extraUrls = [];
-      for (const f of otherFiles) {
-        const u = await uploadImage(f);
-        extraUrls.push(u);
-      }
-
-      // Save product in Firestore
       await addDoc(collection(db, "products"), {
         name, desc, price, link,
         mainImage: mainImageUrl,
-        extraImages: extraUrls,
         createdAt: new Date()
       });
 
@@ -151,37 +178,26 @@
       form.reset();
       loadProducts();
     } catch (err) {
-      console.error(err);
-      alert("❌ Error adding product: " + err.message);
+      alert("❌ Error: " + err.message);
     }
   });
 
   async function loadProducts() {
-    list.innerHTML = "<p class='text-center text-secondary'>Loading...</p>";
     const snapshot = await getDocs(collection(db, "products"));
     list.innerHTML = "";
-
-    if (snapshot.empty) {
-      list.innerHTML = "<p class='text-center text-secondary'>No products found.</p>";
-      return;
-    }
-
     snapshot.forEach(doc => {
       const p = doc.data();
       list.innerHTML += `
         <div class="col-md-4">
-          <div class="card h-100 text-center">
+          <div class="card text-center">
             <img src="${p.mainImage}" class="img-fluid rounded mb-2" style="height:200px; object-fit:cover;">
             <h5 class="text-warning">${p.name}</h5>
             <p class="text-light">₹${p.price}</p>
-            <a href="${p.link}" target="_blank" class="btn btn-sm btn-success mb-2">🛒 View Link</a>
+            <a href="${p.link}" target="_blank" class="btn btn-success btn-sm">View Link</a>
           </div>
         </div>`;
     });
   }
-
-  // Load products on start
-  loadProducts();
 </script>
 
 </body>
