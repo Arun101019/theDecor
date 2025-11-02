@@ -3,220 +3,186 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin - Manage Products</title>
+  <title>Admin Panel - The Decor Edits</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
   <style>
-    body { background-color: #0d1117; color: #e6edf3; font-family: 'Poppins', sans-serif; }
-    .container { max-width: 900px; margin-top: 40px; }
-    .card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; }
-    .form-control { background-color: #0d1117; color: #e6edf3; border: 1px solid #30363d; }
+    body {
+      background-color: #0d1117;
+      color: #e6edf3;
+      font-family: 'Poppins', sans-serif;
+    }
+    .navbar { background-color: #161b22; border-bottom: 1px solid #30363d; }
+    .navbar-brand { color: #1f6feb !important; font-weight: 600; }
+    .form-control, .form-select {
+      background-color: #0d1117;
+      color: #e6edf3;
+      border: 1px solid #30363d;
+    }
+    .card {
+      background-color: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 20px;
+    }
     .btn-primary { background-color: #1f6feb; border: none; }
     .btn-primary:hover { background-color: #388bfd; }
-    .btn-danger { background-color: #d73a49; border: none; }
-    .btn-danger:hover { background-color: #f85149; }
-    img.preview { height: 80px; margin: 3px; border-radius: 5px; border: 1px solid #30363d; object-fit: cover; }
-    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
   </style>
 </head>
+
 <body>
 
-<script>
-// 🛑 Access control for Admin Page
-document.addEventListener("DOMContentLoaded", () => {
-  const role = localStorage.getItem("userRole");
-  if (role !== "Admin") {
-    alert("🚫 Access Denied! Only Admins can open this page.");
-    window.location.href = "customer.html";
-  }
-});
-</script>
-
-<div class="container">
-  <div class="topbar">
-    <h2 class="text-info mb-4">🛒 Admin Panel — Manage Products</h2>
-    <button class="btn btn-sm btn-outline-danger" onclick="logout()">Logout</button>
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="#">⚙️ Admin - The Decor Edits</a>
   </div>
+</nav>
 
-  <!-- Product Form -->
-  <div class="card p-4 mb-4">
-    <h5 class="text-warning mb-3" id="formTitle">➕ Add New Product</h5>
+<div class="container mt-5">
+  <h2 class="text-info mb-4 text-center">🛍️ Add New Product</h2>
+
+  <div class="card shadow">
     <form id="productForm">
-      <input type="hidden" id="editId">
       <div class="mb-3">
         <label class="form-label">Product Name</label>
-        <input type="text" id="name" class="form-control" required>
+        <input type="text" id="pname" class="form-control" required>
       </div>
+
       <div class="mb-3">
         <label class="form-label">Description</label>
-        <textarea id="description" class="form-control" rows="2" required></textarea>
+        <textarea id="pdesc" class="form-control" rows="3" required></textarea>
       </div>
+
       <div class="mb-3">
         <label class="form-label">Price (₹)</label>
-        <input type="number" id="price" class="form-control" min="0" required>
+        <input type="number" id="pprice" class="form-control" required>
       </div>
-      <div class="mb-3">
-        <label class="form-label">Amazon Link (optional)</label>
-        <input type="url" id="amazonLink" class="form-control" placeholder="https://www.amazon.in/your-product">
-      </div>
+
       <div class="mb-3">
         <label class="form-label">Main Image</label>
-        <input type="file" id="mainImage" accept="image/*" class="form-control" required>
-        <div id="mainPreview" class="mt-2"></div>
+        <input type="file" id="mainImgFile" class="form-control" accept="image/*" required>
       </div>
+
       <div class="mb-3">
-        <label class="form-label">Extra Images</label>
-        <input type="file" id="extraImages" accept="image/*" multiple class="form-control">
-        <div id="extraPreview" class="mt-2"></div>
+        <label class="form-label">Other Images (optional)</label>
+        <input type="file" id="otherImgsFile" class="form-control" accept="image/*" multiple>
       </div>
+
+      <div class="mb-3">
+        <label class="form-label">Amazon / Flipkart Link</label>
+        <input type="url" id="plink" class="form-control" placeholder="https://amazon.in/...">
+      </div>
+
       <button type="submit" class="btn btn-primary w-100">💾 Save Product</button>
     </form>
   </div>
 
-  <!-- Product List -->
-  <div class="card p-4">
-    <h5 class="text-warning mb-3">📦 Products List</h5>
-    <div id="productList"></div>
+  <div class="mt-5">
+    <h4 class="text-info mb-3">🧾 All Saved Products</h4>
+    <div id="productList" class="row g-4"></div>
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-function logout() {
-  localStorage.clear();
-  window.location.href = "login.html";
-}
+<!-- Firebase SDK -->
+<script type="module">
+  // Import Firebase functions
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
+  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-storage.js";
 
-// IndexedDB setup
-let db;
-const request = indexedDB.open("ShopDB", 1);
-request.onerror = () => alert("❌ Database error!");
-request.onsuccess = e => { db = e.target.result; loadProducts(); };
-request.onupgradeneeded = e => {
-  db = e.target.result;
-  if (!db.objectStoreNames.contains("products"))
-    db.createObjectStore("products", { keyPath: "id", autoIncrement: true });
-};
-
-let mainImageData = "";
-let extraImagesData = [];
-
-// Handle image previews
-document.getElementById("mainImage").addEventListener("change", e => {
-  const file = e.target.files[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      mainImageData = reader.result;
-      document.getElementById("mainPreview").innerHTML = `<img src="${mainImageData}" class="preview">`;
-    };
-    reader.readAsDataURL(file);
-  }
-});
-
-document.getElementById("extraImages").addEventListener("change", e => {
-  extraImagesData = [];
-  const files = Array.from(e.target.files);
-  const preview = document.getElementById("extraPreview");
-  preview.innerHTML = "";
-  files.forEach(f => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      extraImagesData.push(reader.result);
-      preview.innerHTML += `<img src="${reader.result}" class="preview">`;
-    };
-    reader.readAsDataURL(f);
-  });
-});
-
-// Save product
-document.getElementById("productForm").addEventListener("submit", e => {
-  e.preventDefault();
-  const id = document.getElementById("editId").value;
-  const product = {
-    name: document.getElementById("name").value.trim(),
-    description: document.getElementById("description").value.trim(),
-    price: parseFloat(document.getElementById("price").value),
-    mainImage: mainImageData,
-    extraImages: extraImagesData,
-    amazonLink: document.getElementById("amazonLink").value.trim()
+  // Firebase configuration (from your console)
+  const firebaseConfig = {
+    apiKey: "AIzaSyDRVCbBDzuqIG2mYBLDirReunh4oLJa5Wk",
+    authDomain: "thedecor-6d3f4.firebaseapp.com",
+    projectId: "thedecor-6d3f4",
+    storageBucket: "thedecor-6d3f4.firebasestorage.app",
+    messagingSenderId: "993017983175",
+    appId: "1:993017983175:web:3d5fcb9977236aa84b8ee2",
+    measurementId: "G-YT7CBME3LK"
   };
 
-  const tx = db.transaction("products", "readwrite");
-  const store = tx.objectStore("products");
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const storage = getStorage(app);
 
-  if (id) {
-    product.id = parseInt(id);
-    store.put(product);
-  } else {
-    store.add(product);
+  const form = document.getElementById("productForm");
+  const list = document.getElementById("productList");
+
+  async function uploadImage(file, folder = "products") {
+    const fileRef = ref(storage, `${folder}/${Date.now()}_${file.name}`);
+    await uploadBytes(fileRef, file);
+    return await getDownloadURL(fileRef);
   }
 
-  tx.oncomplete = () => {
-    e.target.reset();
-    mainImageData = "";
-    extraImagesData = [];
-    document.getElementById("mainPreview").innerHTML = "";
-    document.getElementById("extraPreview").innerHTML = "";
-    document.getElementById("formTitle").textContent = "➕ Add New Product";
-    document.getElementById("editId").value = "";
-    loadProducts();
-  };
-});
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("pname").value.trim();
+    const desc = document.getElementById("pdesc").value.trim();
+    const price = parseFloat(document.getElementById("pprice").value);
+    const link = document.getElementById("plink").value.trim();
+    const mainFile = document.getElementById("mainImgFile").files[0];
+    const otherFiles = Array.from(document.getElementById("otherImgsFile").files);
 
-// Load products
-function loadProducts() {
-  const tx = db.transaction("products", "readonly");
-  const store = tx.objectStore("products");
-  store.getAll().onsuccess = e => {
-    const list = document.getElementById("productList");
-    const products = e.target.result;
-    if (products.length === 0) {
-      list.innerHTML = `<p class="text-secondary">No products added yet.</p>`;
+    if (!mainFile) {
+      alert("Main image is required!");
       return;
     }
-    list.innerHTML = products.map(p => `
-      <div class="border p-3 mb-3 rounded">
-        <div class="d-flex justify-content-between align-items-center">
-          <div>
-            <h6 class="text-info">${p.name}</h6>
-            <p class="text-light mb-1">₹${p.price}</p>
-            ${p.amazonLink ? `<a href="${p.amazonLink}" target="_blank" class="text-success small">🌐 Buy Now</a>` : ""}
-          </div>
-          <div>
-            <button class="btn btn-sm btn-warning me-2" onclick="editProduct(${p.id})">✏️ Edit</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">🗑️ Delete</button>
-          </div>
-        </div>
-      </div>
-    `).join("");
-  };
-}
 
-// Edit product
-function editProduct(id) {
-  const tx = db.transaction("products", "readonly");
-  tx.objectStore("products").get(id).onsuccess = e => {
-    const p = e.target.result;
-    document.getElementById("editId").value = p.id;
-    document.getElementById("name").value = p.name;
-    document.getElementById("description").value = p.description;
-    document.getElementById("price").value = p.price;
-    document.getElementById("amazonLink").value = p.amazonLink || "";
-    mainImageData = p.mainImage;
-    extraImagesData = p.extraImages || [];
-    document.getElementById("mainPreview").innerHTML = `<img src="${p.mainImage}" class="preview">`;
-    document.getElementById("extraPreview").innerHTML = p.extraImages.map(i => `<img src="${i}" class="preview">`).join("");
-    document.getElementById("formTitle").textContent = "✏️ Edit Product";
-  };
-}
+    try {
+      // Upload main image
+      const mainImageUrl = await uploadImage(mainFile);
+      const extraUrls = [];
+      for (const f of otherFiles) {
+        const u = await uploadImage(f);
+        extraUrls.push(u);
+      }
 
-// Delete product
-function deleteProduct(id) {
-  if (!confirm("Delete this product?")) return;
-  const tx = db.transaction("products", "readwrite");
-  tx.objectStore("products").delete(id);
-  tx.oncomplete = () => loadProducts();
-}
+      // Save product in Firestore
+      await addDoc(collection(db, "products"), {
+        name, desc, price, link,
+        mainImage: mainImageUrl,
+        extraImages: extraUrls,
+        createdAt: new Date()
+      });
+
+      alert("✅ Product added successfully!");
+      form.reset();
+      loadProducts();
+    } catch (err) {
+      console.error(err);
+      alert("❌ Error adding product: " + err.message);
+    }
+  });
+
+  async function loadProducts() {
+    list.innerHTML = "<p class='text-center text-secondary'>Loading...</p>";
+    const snapshot = await getDocs(collection(db, "products"));
+    list.innerHTML = "";
+
+    if (snapshot.empty) {
+      list.innerHTML = "<p class='text-center text-secondary'>No products found.</p>";
+      return;
+    }
+
+    snapshot.forEach(doc => {
+      const p = doc.data();
+      list.innerHTML += `
+        <div class="col-md-4">
+          <div class="card h-100 text-center">
+            <img src="${p.mainImage}" class="img-fluid rounded mb-2" style="height:200px; object-fit:cover;">
+            <h5 class="text-warning">${p.name}</h5>
+            <p class="text-light">₹${p.price}</p>
+            <a href="${p.link}" target="_blank" class="btn btn-sm btn-success mb-2">🛒 View Link</a>
+          </div>
+        </div>`;
+    });
+  }
+
+  // Load products on start
+  loadProducts();
 </script>
+
 </body>
 </html>
