@@ -1,9 +1,11 @@
-// Import Firebase SDKs
+// Import Firebase SDK modules
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs } 
   from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } 
+  from "https://www.gstatic.com/firebasejs/12.5.0/firebase-storage.js";
 
-// Your Firebase config (replace this with your own from Firebase Console)
+// Your Firebase Config (replace this with yours)
 const firebaseConfig = {
   apiKey: "AIzaSyDRVCbBDzuqIG2mYBLDrReunh4oLJa5WK",
   authDomain: "thedecor-6d3f4.firebaseapp.com",
@@ -16,31 +18,51 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 // DOM elements
 const nameInput = document.getElementById("name");
 const priceInput = document.getElementById("price");
-const imageInput = document.getElementById("image");
+const imageFile = document.getElementById("imageFile");
 const addBtn = document.getElementById("addProductBtn");
 const productList = document.getElementById("productList");
 
-// Add product to Firestore
+// Add product to Firebase (Storage + Firestore)
 addBtn.addEventListener("click", async () => {
   const name = nameInput.value.trim();
   const price = parseFloat(priceInput.value);
-  const image = imageInput.value.trim();
+  const file = imageFile.files[0];
 
-  if (!name || !price || !image) {
-    alert("Please fill all fields!");
+  if (!name || !price || !file) {
+    alert("Please fill all fields and select an image!");
     return;
   }
 
-  await addDoc(collection(db, "products"), { name, price, image });
-  alert("✅ Product added!");
-  nameInput.value = "";
-  priceInput.value = "";
-  imageInput.value = "";
-  loadProducts();
+  try {
+    // 1️⃣ Upload image to Firebase Storage
+    const storageRef = ref(storage, `products/${Date.now()}_${file.name}`);
+    await uploadBytes(storageRef, file);
+
+    // 2️⃣ Get the download URL
+    const imageURL = await getDownloadURL(storageRef);
+
+    // 3️⃣ Save product info to Firestore
+    await addDoc(collection(db, "products"), {
+      name,
+      price,
+      image: imageURL
+    });
+
+    alert("✅ Product added successfully!");
+    nameInput.value = "";
+    priceInput.value = "";
+    imageFile.value = "";
+
+    loadProducts();
+  } catch (error) {
+    console.error("Error adding product:", error);
+    alert("❌ Failed to add product!");
+  }
 });
 
 // Load all products from Firestore
@@ -54,13 +76,13 @@ async function loadProducts() {
     const div = document.createElement("div");
     div.classList.add("product-card");
     div.innerHTML = `
-      <h4>${product.name}</h4>
       <img src="${product.image}" alt="${product.name}" width="150">
-      <p>Price: ₹${product.price}</p>
+      <h4>${product.name}</h4>
+      <p>₹${product.price}</p>
     `;
     productList.appendChild(div);
   });
 }
 
-// Load products on page load
+// Load products when page opens
 loadProducts();
