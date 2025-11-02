@@ -1,204 +1,142 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Panel - The Decor Edits</title>
+  <title>Admin Panel - Add Products</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
   <style>
     body {
       background-color: #0d1117;
-      color: #e6edf3;
-      font-family: 'Poppins', sans-serif;
-    }
-    .navbar { background-color: #161b22; border-bottom: 1px solid #30363d; }
-    .navbar-brand { color: #1f6feb !important; font-weight: 600; }
-    .form-control, .form-select {
-      background-color: #0d1117;
-      color: #e6edf3;
-      border: 1px solid #30363d;
+      color: white;
+      font-family: "Poppins", sans-serif;
     }
     .card {
       background-color: #161b22;
       border: 1px solid #30363d;
-      border-radius: 10px;
-      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 15px #0ff3ff33;
     }
-    .btn-primary { background-color: #1f6feb; border: none; }
-    .btn-primary:hover { background-color: #388bfd; }
+    .btn-custom {
+      background-color: #00bcd4;
+      border: none;
+      transition: 0.3s;
+    }
+    .btn-custom:hover {
+      background-color: #0097a7;
+      box-shadow: 0 0 10px #00bcd4;
+    }
+    input, textarea {
+      background-color: #0d1117 !important;
+      color: white !important;
+      border: 1px solid #30363d !important;
+    }
   </style>
 </head>
-
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark">
-  <div class="container-fluid px-4">
-    <a class="navbar-brand" href="#">⚙️ Admin - The Decor Edits</a>
-    <button id="logoutBtn" class="btn btn-danger btn-sm ms-auto d-none">Logout</button>
-  </div>
-</nav>
-
-<!-- Login Section -->
-<div class="container mt-5" id="loginSection">
-  <div class="card mx-auto" style="max-width:400px;">
-    <h4 class="text-center text-info mb-3">🔐 Admin Login</h4>
-    <form id="loginForm">
-      <div class="mb-3">
-        <label>Email</label>
-        <input type="email" id="loginEmail" class="form-control" required>
-      </div>
-      <div class="mb-3">
-        <label>Password</label>
-        <input type="password" id="loginPassword" class="form-control" required>
-      </div>
-      <button type="submit" class="btn btn-primary w-100">Login</button>
-    </form>
-  </div>
-</div>
-
-<!-- Admin Panel Section -->
-<div class="container mt-5 d-none" id="adminSection">
-  <h2 class="text-info mb-4 text-center">🛍️ Add New Product</h2>
-  <div class="card shadow">
-    <form id="productForm">
+  <div class="container mt-5">
+    <h2 class="text-center mb-4 text-info">🛍 Admin Panel - Add Product</h2>
+    <div class="card p-4 mx-auto" style="max-width: 600px;">
       <div class="mb-3">
         <label class="form-label">Product Name</label>
-        <input type="text" id="pname" class="form-control" required>
+        <input type="text" id="productName" class="form-control" placeholder="Enter product name">
       </div>
+
       <div class="mb-3">
         <label class="form-label">Description</label>
-        <textarea id="pdesc" class="form-control" rows="3" required></textarea>
+        <textarea id="productDesc" class="form-control" rows="3" placeholder="Enter product description"></textarea>
       </div>
+
       <div class="mb-3">
         <label class="form-label">Price (₹)</label>
-        <input type="number" id="pprice" class="form-control" required>
+        <input type="number" id="productPrice" class="form-control" placeholder="Enter price">
       </div>
-      <div class="mb-3">
-        <label class="form-label">Main Image</label>
-        <input type="file" id="mainImgFile" class="form-control" accept="image/*" required>
-      </div>
+
       <div class="mb-3">
         <label class="form-label">Amazon / Flipkart Link</label>
-        <input type="url" id="plink" class="form-control">
+        <input type="url" id="productLink" class="form-control" placeholder="Paste affiliate or product link">
       </div>
-      <button type="submit" class="btn btn-primary w-100">💾 Save Product</button>
-    </form>
+
+      <div class="mb-3">
+        <label class="form-label">Upload Image</label>
+        <input type="file" id="productImage" class="form-control" accept="image/*">
+      </div>
+
+      <button id="addProductBtn" class="btn btn-custom w-100 mt-2">Add Product</button>
+      <p id="status" class="text-center mt-3"></p>
+    </div>
   </div>
 
-  <div class="mt-5">
-    <h4 class="text-info mb-3">🧾 All Products</h4>
-    <div id="productList" class="row g-4"></div>
-  </div>
-</div>
+  <!-- Firebase SDKs -->
+  <script type="module">
+    // Import Firebase
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-storage.js";
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
-  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
-  import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
-  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-storage.js";
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDRVCbBDzuqIG2mYBLDirReunh4oLJa5Wk",
+      authDomain: "thedecor-6d3f4.firebaseapp.com",
+      projectId: "thedecor-6d3f4",
+      storageBucket: "thedecor-6d3f4.appspot.com",
+      messagingSenderId: "993017983175",
+      appId: "1:993017983175:web:3d5fcb9977236aa84b8ee2",
+      measurementId: "G-YT7CBME3LK"
+    };
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyDRVCbBDzuqIG2mYBLDirReunh4oLJa5Wk",
-    authDomain: "thedecor-6d3f4.firebaseapp.com",
-    projectId: "thedecor-6d3f4",
-    storageBucket: "thedecor-6d3f4.firebasestorage.app",
-    messagingSenderId: "993017983175",
-    appId: "1:993017983175:web:3d5fcb9977236aa84b8ee2"
-  };
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
 
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-  const storage = getStorage(app);
+    const addBtn = document.getElementById("addProductBtn");
+    const status = document.getElementById("status");
 
-  const loginSection = document.getElementById("loginSection");
-  const adminSection = document.getElementById("adminSection");
-  const logoutBtn = document.getElementById("logoutBtn");
+    addBtn.addEventListener("click", async () => {
+      const name = document.getElementById("productName").value.trim();
+      const desc = document.getElementById("productDesc").value.trim();
+      const price = parseFloat(document.getElementById("productPrice").value);
+      const link = document.getElementById("productLink").value.trim();
+      const file = document.getElementById("productImage").files[0];
 
-  // 🔐 Handle Auth State
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      loginSection.classList.add("d-none");
-      adminSection.classList.remove("d-none");
-      logoutBtn.classList.remove("d-none");
-      loadProducts();
-    } else {
-      adminSection.classList.add("d-none");
-      loginSection.classList.remove("d-none");
-      logoutBtn.classList.add("d-none");
-    }
-  });
+      if (!name || !desc || !price || !file) {
+        status.innerHTML = "<span class='text-danger'>⚠️ Please fill all fields and select an image.</span>";
+        return;
+      }
 
-  // Login Handler
-  document.getElementById("loginForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const email = document.getElementById("loginEmail").value;
-    const password = document.getElementById("loginPassword").value;
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (err) {
-      alert("❌ Login failed: " + err.message);
-    }
-  });
+      try {
+        status.innerHTML = "<span class='text-info'>⏳ Uploading image...</span>";
 
-  // Logout
-  logoutBtn.addEventListener("click", async () => {
-    await signOut(auth);
-  });
+        // Upload image to Firebase Storage
+        const imageRef = ref(storage, 'products/' + Date.now() + '-' + file.name);
+        await uploadBytes(imageRef, file);
+        const imageURL = await getDownloadURL(imageRef);
 
-  // 🛍️ Product Upload
-  const form = document.getElementById("productForm");
-  const list = document.getElementById("productList");
+        // Save product to Firestore
+        await addDoc(collection(db, "products"), {
+          name: name,
+          description: desc,
+          price: price,
+          amazonLink: link,
+          image: imageURL,
+          createdAt: serverTimestamp()
+        });
 
-  async function uploadImage(file) {
-    const fileRef = ref(storage, `products/${Date.now()}_${file.name}`);
-    await uploadBytes(fileRef, file);
-    return await getDownloadURL(fileRef);
-  }
+        status.innerHTML = "<span class='text-success'>✅ Product added successfully!</span>";
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const name = document.getElementById("pname").value.trim();
-    const desc = document.getElementById("pdesc").value.trim();
-    const price = parseFloat(document.getElementById("pprice").value);
-    const link = document.getElementById("plink").value.trim();
-    const mainFile = document.getElementById("mainImgFile").files[0];
+        // Clear fields
+        document.getElementById("productName").value = "";
+        document.getElementById("productDesc").value = "";
+        document.getElementById("productPrice").value = "";
+        document.getElementById("productLink").value = "";
+        document.getElementById("productImage").value = "";
 
-    if (!mainFile) return alert("Main image is required!");
-
-    try {
-      const mainImageUrl = await uploadImage(mainFile);
-      await addDoc(collection(db, "products"), {
-        name, desc, price, link,
-        mainImage: mainImageUrl,
-        createdAt: new Date()
-      });
-
-      alert("✅ Product added successfully!");
-      form.reset();
-      loadProducts();
-    } catch (err) {
-      alert("❌ Error: " + err.message);
-    }
-  });
-
-  async function loadProducts() {
-    const snapshot = await getDocs(collection(db, "products"));
-    list.innerHTML = "";
-    snapshot.forEach(doc => {
-      const p = doc.data();
-      list.innerHTML += `
-        <div class="col-md-4">
-          <div class="card text-center">
-            <img src="${p.mainImage}" class="img-fluid rounded mb-2" style="height:200px; object-fit:cover;">
-            <h5 class="text-warning">${p.name}</h5>
-            <p class="text-light">₹${p.price}</p>
-            <a href="${p.link}" target="_blank" class="btn btn-success btn-sm">View Link</a>
-          </div>
-        </div>`;
+      } catch (error) {
+        console.error(error);
+        status.innerHTML = "<span class='text-danger'>❌ Error: " + error.message + "</span>";
+      }
     });
-  }
-</script>
-
+  </script>
 </body>
 </html>
