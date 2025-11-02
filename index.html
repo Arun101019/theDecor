@@ -3,26 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TheDecor - Products</title>
+  <title>TheDecor - Admin & Products</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <h1>🛋️ TheDecor Products</h1>
 
-  <div>
+  <section id="add-product">
     <h3>Add Product</h3>
     <input type="text" id="name" placeholder="Product Name" />
     <input type="number" id="price" placeholder="Price" />
-    <input type="text" id="image" placeholder="Image URL" />
+    <input type="file" id="imageFile" accept="image/*" />
     <button id="addProductBtn">Add Product</button>
-  </div>
+  </section>
 
   <hr />
 
   <h3>All Products</h3>
   <div id="productList"></div>
 
-  <!-- Firebase code -->
   <script type="module" src="product.js"></script>
 </body>
 </html>
