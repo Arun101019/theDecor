@@ -22,6 +22,80 @@
   <h3>All Products</h3>
   <div id="productList"></div>
 
-  <script type="module" src="product.js"></script>
+  <script type="module">
+  // Import Firebase modules
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
+
+  // Your Firebase Config
+  const firebaseConfig = {
+    apiKey: "AIzaSyDRVCbBDzuqIG2mYBLDirReunh4oLJa5Wk",
+    authDomain: "thedecor-6d3f4.firebaseapp.com",
+    projectId: "thedecor-6d3f4",
+    storageBucket: "thedecor-6d3f4.appspot.com",
+    messagingSenderId: "993017983175",
+    appId: "1:993017983175:web:3d5fcb9977236aa84b8ee2",
+    measurementId: "G-YT7CBME3LK"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // Load products from Firestore
+  async function loadProducts(searchTerm = "", min = 0, max = Infinity) {
+    const querySnapshot = await getDocs(collection(db, "products"));
+    const products = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      data.id = doc.id;
+      products.push(data);
+    });
+
+    // Filter products
+    const filtered = products
+      .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      .filter(p => p.price >= min && p.price <= max);
+
+    const list = document.getElementById("productList");
+    list.innerHTML = "";
+    if (filtered.length === 0) {
+      list.innerHTML = `<p class="text-center text-secondary">No products found.</p>`;
+      return;
+    }
+
+    filtered.forEach(p => {
+      list.innerHTML += `
+        <div class="col-md-4">
+          <div class="card p-3 shadow-sm h-100">
+            <img src="${p.image}" class="product-img mb-3" alt="">
+            <h5 class="text-warning">${p.name}</h5>
+            <p class="text-light">${p.description?.substring(0,70) || ""}...</p>
+            <p class="text-info fw-bold">₹${p.price}</p>
+            <a href="${p.amazonLink || "#"}" target="_blank" class="btn btn-sm btn-success w-100">🛒 Buy Now</a>
+          </div>
+        </div>`;
+    });
+  }
+
+  // Search + Filter listeners
+  document.getElementById("searchBox").addEventListener("input", e => {
+    const term = e.target.value.trim();
+    const min = parseFloat(document.getElementById("minPrice").value) || 0;
+    const max = parseFloat(document.getElementById("maxPrice").value) || Infinity;
+    loadProducts(term, min, max);
+  });
+  document.getElementById("filterBtn").addEventListener("click", () => {
+    const term = document.getElementById("searchBox").value.trim();
+    const min = parseFloat(document.getElementById("minPrice").value) || 0;
+    const max = parseFloat(document.getElementById("maxPrice").value) || Infinity;
+    loadProducts(term, min, max);
+  });
+
+  // Load products on page start
+  loadProducts();
+</script>
+
 </body>
 </html>
+
